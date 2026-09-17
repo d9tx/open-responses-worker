@@ -11,6 +11,7 @@ import { checkSchema } from '../utils/schema';
 import type {
   HistoryMessage,
   HistoryToolCall,
+  ReasoningEffort,
   ResponsesRequest,
   ResponsesTool,
   ToolChoice,
@@ -451,15 +452,16 @@ export function parseRequest(
     bad('Invalid output token budget.');
   }
 
-  let effort: string | undefined;
+  let effort: ReasoningEffort | undefined;
   if (r.reasoning !== undefined) {
     const reasoning = object(r.reasoning);
     keys(reasoning, ['effort', 'summary', 'context']);
     if (reasoning.effort !== undefined) {
-      effort = string(reasoning.effort);
-      if (!['low', 'medium', 'high', 'max'].includes(effort)) {
-        bad(`Unsupported reasoning effort: ${effort}`);
+      const value = string(reasoning.effort);
+      if (value !== 'low' && value !== 'high' && value !== 'max') {
+        bad(`Unsupported reasoning effort: ${value}`);
       }
+      effort = value;
     }
   }
 

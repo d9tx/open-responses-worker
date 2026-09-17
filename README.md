@@ -13,7 +13,7 @@ The current provider adapter targets **GLM-5.3**. The gateway is intentionally f
 - Provider: `@cf/zai-org/glm-5.3`
 - Public model IDs: `glm-5.3`, `@cf/zai-org/glm-5.3`
 - Supported transports: HTTP JSON, HTTP SSE, WebSocket
-- Latest local checks: TypeScript strict check and Wrangler dry-run build on 2026-09-16
+- Latest local checks: TypeScript strict check and Wrangler dry-run build on 2026-09-17
 
 ## Features
 
@@ -23,6 +23,8 @@ The current provider adapter targets **GLM-5.3**. The gateway is intentionally f
 - String and structured text input
 - Instructions and complete, stateless conversation history
 - Assistant text and reasoning output
+- Reasoning effort `low`, `high`, and `max`
+- Default reasoning effort: `max`
 - Function tools and text custom tools
 - Tool namespaces and request-local aliases for long upstream tool names
 - Tool argument JSON parsing and JSON Schema validation before output is committed
@@ -79,7 +81,13 @@ npm ci
 npm run typegen
 ```
 
-Create `.dev.vars` in the repository root. This file is ignored by Git:
+Copy the example file to `.dev.vars` in the repository root. `.dev.vars` is ignored by Git:
+
+```sh
+cp .dev.vars.example .dev.vars
+```
+
+Edit `.dev.vars`:
 
 ```sh
 GATEWAY_TOKEN=<at-least-32-random-bytes>
@@ -101,6 +109,8 @@ npm run dev -- --ip 127.0.0.1 --port 8787
 ```
 
 Workers AI has no local model simulator. When inference is enabled during local development, `env.AI.run()` invokes the remote Workers AI model and incurs normal Workers AI usage.
+
+The example starts with `INFERENCE_ENABLED=false`, so inference requests return `inference_disabled`. Before making an actual inference smoke test, change it to `true` and restart the development server.
 
 ## Build and verification
 
@@ -150,7 +160,7 @@ Example `config.toml`:
 ```toml
 model = "glm-5.3"
 model_provider = "cloudflare_gateway"
-model_reasoning_effort = "high"
+model_reasoning_effort = "max"
 web_search = "disabled"
 
 [model_providers.cloudflare_gateway]
@@ -209,6 +219,7 @@ Tool parameters and structured output roots must use object type.
 - Encrypted reasoning data
 - Assistant phase
 - `text.verbosity`
+- `reasoning.effort: "medium"`
 - Persistent server-side sessions
 - HTTP `previous_response_id`
 - Remote conversation compaction
@@ -250,7 +261,7 @@ The rate limiter is Cloudflare-location-local and eventually consistent. It is n
 ## Verification record
 
 - **Used successfully in normal development workflows with Codex CLI 0.154.0.** The 2026-09-15 smoke coverage included text, file reading, shell/function, apply_patch, Parallel MCP, Exa MCP, multiple tool calls in one response, WebSocket continuation, reconnection, and automatic approval review against the pre-refactor implementation.
-- **2026-09-16:** Provider-boundary refactor was completed. TypeScript strict checking and Wrangler dry-run bundling passed. No remote model call or deployment was performed for the refactored code.
+- **2026-09-16–2026-09-17:** The provider-adapter implementation has been used successfully in normal development workflows with Codex CLI 0.154.0, GLM-5.3, and remote Workers AI inference. TypeScript strict checking and Wrangler dry-run bundling also passed.
 - These workflows do not cover every Responses API edge case. Desktop and long-session behavior remain unverified.
 
 ## Contributing

@@ -1,0 +1,3 @@
+# Copy to .dev.vars and replace the token before use.
+GATEWAY_TOKEN=replace-with-at-least-32-random-bytes
+INFERENCE_ENABLED=false

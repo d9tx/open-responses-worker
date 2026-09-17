@@ -31,6 +31,8 @@ export type ToolChoice =
   | 'required'
   | { type: 'function'; name: string; namespace?: string };
 
+export type ReasoningEffort = 'low' | 'high' | 'max';
+
 export interface ResponsesRequest {
   model: string;
   history: HistoryMessage[];
@@ -38,7 +40,7 @@ export interface ResponsesRequest {
   stream: boolean;
   toolChoice: ToolChoice;
   tokens: number;
-  effort?: string;
+  effort?: ReasoningEffort;
   outputSchema?: Obj;
   affinity?: string;
 }

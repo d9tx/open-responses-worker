@@ -3,8 +3,8 @@ import { CODEX_BASE_INSTRUCTIONS } from './model-instructions';
 
 const reasoningLevels = [
   { effort: 'low', description: 'Fast, lightweight reasoning.' },
-  { effort: 'medium', description: 'Balanced reasoning.' },
   { effort: 'high', description: 'Thorough reasoning.' },
+  { effort: 'max', description: 'Maximum reasoning.' },
 ];
 
 interface ModelInfoOptions {
@@ -30,7 +30,7 @@ function modelInfo({
     slug,
     display_name: displayName,
     description,
-    default_reasoning_level: slug === 'codex-auto-review' ? 'low' : 'high',
+    default_reasoning_level: slug === 'codex-auto-review' ? 'low' : 'max',
     supported_reasoning_levels: reasoningLevels,
     shell_type: slug === 'codex-auto-review' ? 'disabled' : 'unified_exec',
     visibility,

@@ -366,7 +366,7 @@ export const glmProvider: ProviderAdapter = {
           }),
       max_completion_tokens: request.tokens,
       parallel_tool_calls: false,
-      ...(request.effort === undefined ? {} : { reasoning_effort: request.effort }),
+      reasoning_effort: request.effort ?? 'max',
       ...(request.tools.length === 0
         ? {}
         : {

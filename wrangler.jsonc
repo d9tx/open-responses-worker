@@ -7,7 +7,7 @@
     "binding": "AI"
   },
   "vars": {
-    "INFERENCE_ENABLED": "true",
+    "INFERENCE_ENABLED": "false",
     "MAX_BODY_BYTES": "16777216",
     "MAX_OUTPUT_BYTES": "2097152",
     "MAX_TOOL_BYTES": "262144",
