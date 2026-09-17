@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "open-responses-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-14",
+  "ai": {
+    "binding": "AI"
+  },
+  "vars": {
+    "INFERENCE_ENABLED": "true",
+    "MAX_BODY_BYTES": "16777216",
+    "MAX_OUTPUT_BYTES": "2097152",
+    "MAX_TOOL_BYTES": "262144",
+    "MAX_SCHEMA_BYTES": "262144",
+    "MAX_TOOLS": "256",
+    "MAX_OUTPUT_TOKENS": "65536",
+    "REQUEST_TIMEOUT_MS": "180000",
+    "IDLE_TIMEOUT_MS": "60000"
+  },
+  "observability": {
+    "enabled": false
+  },
+  "ratelimits": [
+    {
+      "name": "INFERENCE_RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ]
+}
