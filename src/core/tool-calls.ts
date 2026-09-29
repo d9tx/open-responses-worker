@@ -1,9 +1,9 @@
 import {
-  encoder,
   GatewayError,
   id,
   upstreamRecord,
   type Settings,
+  utf8Length,
 } from '../utils/runtime';
 import { matches } from '../utils/schema';
 import type {
@@ -84,7 +84,7 @@ export class ToolCallAccumulator {
 
     if (delta.arguments === undefined) return 0;
 
-    const size = encoder.encode(delta.arguments).length;
+    const size = utf8Length(delta.arguments);
     call.bytes += size;
     if (call.bytes > limits.tool || totalBytes + size > limits.output) {
       throw new GatewayError(502, 'output_limit', 'Tool argument limit exceeded.');

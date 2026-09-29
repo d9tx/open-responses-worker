@@ -15,7 +15,11 @@
     "MAX_TOOLS": "256",
     "MAX_OUTPUT_TOKENS": "65536",
     "REQUEST_TIMEOUT_MS": "180000",
-    "IDLE_TIMEOUT_MS": "60000"
+    "IDLE_TIMEOUT_MS": "60000",
+    "BODY_IDLE_TIMEOUT_MS": "15000",
+    "MAX_ATTEMPTS": "3",
+    "WS_MAX_CONNECTION_BYTES": "67108864",
+    "WS_MAX_CONNECTION_MS": "3600000"
   },
   "observability": {
     "enabled": false

@@ -28,7 +28,7 @@ The current provider adapter targets **GLM-5.3**. The gateway is intentionally f
 - Function tools and text custom tools
 - Tool namespaces and request-local aliases for long upstream tool names
 - Tool argument JSON parsing and JSON Schema validation before output is committed
-- Multiple tool calls in one response
+- Multiple tool calls in one response; `parallel_tool_calls: false` is echoed and enforced (more than one generated call is rejected and retried within the attempt limit). GLM requests are always sent upstream with `parallel_tool_calls: false`.
 - Required and forced tool choice
 - Streaming and non-streaming responses
 - `completed`, `failed`, and `incomplete` terminal states
@@ -117,17 +117,19 @@ The example starts with `INFERENCE_ENABLED=false`, so inference requests return 
 ```sh
 npm run typecheck
 npm run build
+npm test
 ```
 
 `npm run build` runs `wrangler deploy --dry-run --outdir dist`; it does not deploy.
 
-The automated test suite has not yet been included. The available checks are:
+`npm test` runs a small protocol-level suite in `test/` with Node's built-in test runner and TypeScript support (Node.js 22.7 or later, no additional dependencies). It covers SSE framing, UTF-8 across packets, request parsing, tool-name mapping, tool-call handling, and usage reporting against a fake `AI` binding. It runs on Node.js, not workerd, and does not call Workers AI. There is no test CI at this stage.
+
+The available checks are:
 
 - TypeScript strict compilation
 - Wrangler bundling and dry-run deployment validation
+- The Node.js protocol test suite
 - Manually authorized local or remote requests
-
-There is no `npm test` command, test framework, fixture directory, or test CI at this stage.
 
 ## Endpoints
 
@@ -216,7 +218,7 @@ Tool parameters and structured output roots must use object type.
 - Generic model proxying
 - Image, audio, or file input/output
 - Built-in OpenAI tools, including `web_search`
-- Encrypted reasoning data
+- Encrypted reasoning data. `include: ["reasoning.encrypted_content"]` is accepted for Codex compatibility, but no encrypted content is ever emitted. Input reasoning items are validated; their `summary` and `encrypted_content` are not forwarded upstream, and only `content` reasoning text is replayed.
 - Assistant phase
 - `text.verbosity`
 - `reasoning.effort: "medium"`
@@ -242,7 +244,13 @@ Values are configured in `wrangler.jsonc`.
 | `MAX_OUTPUT_TOKENS` | 65,536 |
 | `REQUEST_TIMEOUT_MS` | 180,000 |
 | `IDLE_TIMEOUT_MS` | 60,000 for upstream stream reads |
+| `BODY_IDLE_TIMEOUT_MS` | 15,000 for HTTP request body reads |
+| `MAX_ATTEMPTS` | 3 upstream attempts per response, sharing one deadline |
+| `WS_MAX_CONNECTION_BYTES` | 64 MiB sent per WebSocket connection |
+| `WS_MAX_CONNECTION_MS` | 3,600,000 WebSocket connection lifetime |
 | Rate limiter | 60 requests / 60 seconds |
+
+A WebSocket connection is also closed after 16 consecutive request errors; the count resets whenever a response reaches a terminal event.
 
 The rate limiter is Cloudflare-location-local and eventually consistent. It is not a global concurrency lock or a hard cost cap. Wire output is additionally bounded; JSON/SSE framing and repeated final output can make transmitted bytes larger than generated-content bytes.
 
@@ -255,7 +263,7 @@ The rate limiter is Cloudflare-location-local and eventually consistent. It is n
 - Secrets are never placed in URLs or logs.
 - Prompts, source text, tool results, generated text, and tool arguments are not logged.
 - Terminal logs contain only request ID, model, latency, attempts, status, and usage when available.
-- Missing usage is represented as `null`; it is not fabricated as zero.
+- Missing usage is represented as `null`; it is not fabricated as zero. When the provider reports usage but not cached input tokens, `input_tokens_details` is `null`.
 - Tool execution remains entirely in Codex. The gateway only converts declarations, calls, and results.
 
 ## Verification record

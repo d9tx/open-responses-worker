@@ -39,6 +39,7 @@ export interface ResponsesRequest {
   tools: ResponsesTool[];
   stream: boolean;
   toolChoice: ToolChoice;
+  parallelToolCalls: boolean;
   tokens: number;
   effort?: ReasoningEffort;
   outputSchema?: Obj;
@@ -49,6 +50,7 @@ export interface ModelDescriptor {
   id: string;
   aliases: readonly string[];
   context: number;
+  autoCompactTokens: number;
   displayName: string;
   description: string;
 }
@@ -75,7 +77,8 @@ export type NormalizedFinishReason = 'stop' | 'tool_calls' | 'length';
 export interface NormalizedUsage {
   inputTokens: number;
   outputTokens: number;
-  cachedInputTokens: number;
+  // Absent when the provider does not report cached input tokens.
+  cachedInputTokens?: number;
 }
 
 export interface NormalizedChunk {

@@ -6,11 +6,7 @@ import {
   id,
   settings,
 } from './utils/runtime';
-import {
-  GLM_MODELS_ETAG,
-  glmCodexModelsResponse,
-  glmProvider,
-} from './providers/glm';
+import { CODEX_MODELS_ETAG, codexModelsResponse, modelIds } from './providers';
 import { handleResponses, type ResponsesEnv } from './routes/responses';
 import { upgradeResponses } from './routes/websocket';
 
@@ -64,7 +60,7 @@ export default {
         request.headers.get('upgrade')?.toLowerCase() === 'websocket';
       if (request.method !== method && !websocket) {
         return Response.json(
-          { error: { code: 'method_not_allowed', message: 'Method not allowed.' } },
+          errorBody(new GatewayError(405, 'method_not_allowed', 'Method not allowed.')),
           { status: 405, headers: { ...headers, allow: method } },
         );
       }
@@ -76,8 +72,8 @@ export default {
           if (env.INFERENCE_ENABLED !== 'true') {
             return Response.json({ models: [] }, { headers });
           }
-          return Response.json(glmCodexModelsResponse(), {
-            headers: { ...headers, 'x-models-etag': GLM_MODELS_ETAG },
+          return Response.json(codexModelsResponse(), {
+            headers: { ...headers, 'x-models-etag': CODEX_MODELS_ETAG },
           });
         }
 
@@ -86,14 +82,12 @@ export default {
             object: 'list',
             data:
               env.INFERENCE_ENABLED === 'true'
-                ? [
-                    {
-                      id: glmProvider.model.id,
-                      object: 'model',
-                      created: 0,
-                      owned_by: 'cloudflare',
-                    },
-                  ]
+                ? modelIds().map(modelId => ({
+                    id: modelId,
+                    object: 'model',
+                    created: 0,
+                    owned_by: 'cloudflare',
+                  }))
                 : [],
           },
           { headers },

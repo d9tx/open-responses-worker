@@ -1,4 +1,4 @@
-import { encoder, GatewayError, type Lifetime, type Obj } from '../utils/runtime';
+import { encoder, GatewayError, type Lifetime } from '../utils/runtime';
 import type { ResponsesEvent } from './types';
 
 export function eventStream(
@@ -26,20 +26,7 @@ export function eventStream(
               next.value.type,
             )
           ) {
-            const response =
-              next.value.response !== null &&
-              typeof next.value.response === 'object' &&
-              !Array.isArray(next.value.response)
-                ? next.value.response as Obj
-                : undefined;
-            console.log(
-              JSON.stringify({
-                phase: 'transport_terminal',
-                type: next.value.type,
-                request_id: typeof response?.id === 'string' ? response.id : null,
-              }),
-            );
-
+            // The response generator logs the terminal summary in its finally block.
             await events.return(undefined);
             controller.close();
           }

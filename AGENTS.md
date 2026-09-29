@@ -203,6 +203,7 @@ After code changes, use the existing project scripts where applicable:
 ```sh
 npm run typecheck
 npm run build
+npm test
 ```
 
 - `npm run typecheck` must continue to pass with TypeScript strict mode.
@@ -214,7 +215,7 @@ npm run build
 - A successful Codex CLI check does not automatically establish compatibility with every other client.
 - Do not overstate validation scope.
 
-Automated tests are not currently part of the repository. If tests are introduced later, keep them focused on protocol behavior and avoid adding a large framework solely for trivial assertions.
+`npm test` runs a small protocol-level suite in `test/` with Node's built-in test runner and TypeScript support, without additional dependencies. It runs on Node.js rather than workerd and uses a fake `AI` binding, so it does not establish runtime compatibility. Keep tests focused on protocol behavior and avoid adding a large framework solely for trivial assertions.
 
 ## Change Discipline
 

@@ -1,10 +1,10 @@
 import {
-  encoder,
   failure,
   GatewayError,
   type Obj,
   type Settings,
   Lifetime,
+  utf8Length,
 } from '../utils/runtime';
 import { matches } from '../utils/schema';
 import type {
@@ -49,6 +49,9 @@ async function* sse(
   life.signal.addEventListener('abort', abort, { once: true });
   const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false });
   let pending = '';
+  // Characters of `pending` already scanned for line terminators. A long line
+  // split across many packets is scanned once rather than once per packet.
+  let scanned = 0;
   let data: string[] = [];
   let eventBytes = 0;
   let wireBytes = 0;
@@ -71,7 +74,8 @@ async function* sse(
 
       pending += decoder.decode(value, { stream: true });
       let start = 0;
-      for (let i = 0; i < pending.length; i++) {
+      let i = scanned;
+      for (; i < pending.length; i++) {
         const c = pending[i];
         if (c !== '\n' && c !== '\r') continue;
         if (c === '\r' && i === pending.length - 1) break;
@@ -86,7 +90,7 @@ async function* sse(
           eventBytes = 0;
         } else if (line.startsWith('data:')) {
           const payload = line.slice(line[5] === ' ' ? 6 : 5);
-          eventBytes += encoder.encode(payload).length;
+          eventBytes += utf8Length(payload);
           if (eventBytes > limits.output) {
             throw new GatewayError(502, 'output_limit', 'Upstream SSE event exceeds limit.');
           }
@@ -94,7 +98,10 @@ async function* sse(
         }
       }
 
-      pending = pending.slice(start);
+      // i stops at pending.length, or on a trailing '\r' that may pair with a
+      // '\n' in the next packet; resume there.
+      if (start > 0) pending = pending.slice(start);
+      scanned = i - start;
       if (pending.length > limits.output) {
         throw new GatewayError(502, 'output_limit', 'Upstream SSE line exceeds limit.');
       }
@@ -124,7 +131,7 @@ function validateStructuredOutput(
     );
   }
   const text = JSON.stringify(value);
-  if (encoder.encode(text).length > outputLimit) {
+  if (utf8Length(text) > outputLimit) {
     throw new GatewayError(502, 'output_limit', 'Structured output exceeds limit.');
   }
   return text;

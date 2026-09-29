@@ -15,6 +15,9 @@ interface ModelInfoOptions {
   priority: number;
   visibility: 'list' | 'none';
   context: number;
+  autoCompactTokens: number;
+  defaultReasoningLevel: 'low' | 'high' | 'max';
+  shellType: 'disabled' | 'unified_exec';
 }
 
 function modelInfo({
@@ -25,14 +28,17 @@ function modelInfo({
   priority,
   visibility,
   context,
+  autoCompactTokens,
+  defaultReasoningLevel,
+  shellType,
 }: ModelInfoOptions) {
   return {
     slug,
     display_name: displayName,
     description,
-    default_reasoning_level: slug === 'codex-auto-review' ? 'low' : 'max',
+    default_reasoning_level: defaultReasoningLevel,
     supported_reasoning_levels: reasoningLevels,
-    shell_type: slug === 'codex-auto-review' ? 'disabled' : 'unified_exec',
+    shell_type: shellType,
     visibility,
     supported_in_api: true,
     priority,
@@ -55,7 +61,7 @@ function modelInfo({
     supports_image_detail_original: false,
     context_window: context,
     max_context_window: context,
-    auto_compact_token_limit: 180_000,
+    auto_compact_token_limit: autoCompactTokens,
     comp_hash: null,
     effective_context_window_percent: 95,
     experimental_supported_tools: [],
@@ -84,6 +90,9 @@ export function codexModelsResponse(model: ModelDescriptor) {
         priority: 1,
         visibility: 'list',
         context: model.context,
+        autoCompactTokens: model.autoCompactTokens,
+        defaultReasoningLevel: 'max',
+        shellType: 'unified_exec',
       }),
       modelInfo({
         slug: 'codex-auto-review',
@@ -94,6 +103,9 @@ export function codexModelsResponse(model: ModelDescriptor) {
         priority: 99,
         visibility: 'none',
         context: model.context,
+        autoCompactTokens: model.autoCompactTokens,
+        defaultReasoningLevel: 'low',
+        shellType: 'disabled',
       }),
     ],
   };

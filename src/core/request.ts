@@ -1,11 +1,11 @@
 import {
   bad,
-  encoder,
   keys,
   object,
   string,
   type Obj,
   type Settings,
+  utf8Length,
 } from '../utils/runtime';
 import { checkSchema } from '../utils/schema';
 import type {
@@ -29,17 +29,22 @@ function toolName(value: unknown, label: string): string {
   return value;
 }
 
+type ToolIndex = ReadonlyMap<string, ResponsesTool>;
+
+// Tool names and namespaces are validated identifiers, so NUL cannot occur in either.
+function toolKey(name: string, namespace: string | undefined): string {
+  return `${namespace ?? ''}\0${name}`;
+}
+
 function findTool(
-  tools: ResponsesTool[],
+  tools: ToolIndex,
   name: unknown,
   namespace: unknown,
 ): ResponsesTool | undefined {
   const originalName = toolName(name, 'Tool name');
   const originalNamespace =
     namespace === undefined ? undefined : toolName(namespace, 'Tool namespace');
-  return tools.find(
-    tool => tool.name === originalName && tool.namespace === originalNamespace,
-  );
+  return tools.get(toolKey(originalName, originalNamespace));
 }
 
 function textContent(raw: unknown): string {
@@ -62,10 +67,10 @@ function textContent(raw: unknown): string {
   }).join('');
 }
 
-function parseTools(raw: unknown, limits: Settings): ResponsesTool[] {
+function parseTools(raw: unknown, limits: Settings): Map<string, ResponsesTool> {
   if (raw !== undefined && !Array.isArray(raw)) bad('tools must be an array.');
   const rawTools: unknown[] = Array.isArray(raw) ? raw : [];
-  const toolBytes = encoder.encode(JSON.stringify(rawTools)).length;
+  const toolBytes = utf8Length(JSON.stringify(rawTools));
   if (rawTools.length > limits.tools) {
     bad(`Too many tool definitions: ${rawTools.length} > ${limits.tools}.`);
   }
@@ -73,7 +78,7 @@ function parseTools(raw: unknown, limits: Settings): ResponsesTool[] {
     bad(`Tool definitions exceed byte limit: ${toolBytes} > ${limits.schema}.`);
   }
 
-  const tools: ResponsesTool[] = [];
+  const tools = new Map<string, ResponsesTool>();
 
   const addTool = (rawTool: unknown, namespace?: string): void => {
     const t = object(rawTool);
@@ -96,10 +101,11 @@ function parseTools(raw: unknown, limits: Settings): ResponsesTool[] {
     ]);
 
     const name = toolName(t.name, 'Tool name');
-    if (tools.some(tool => tool.name === name && tool.namespace === namespace)) {
+    const key = toolKey(name, namespace);
+    if (tools.has(key)) {
       bad(`Duplicate tool name: ${namespace === undefined ? name : `${namespace}__${name}`}`);
     }
-    if (tools.length >= limits.tools) {
+    if (tools.size >= limits.tools) {
       bad(`Too many tool definitions after namespace expansion: maximum ${limits.tools}.`);
     }
 
@@ -143,7 +149,7 @@ function parseTools(raw: unknown, limits: Settings): ResponsesTool[] {
     );
     if (schema.type !== 'object') bad('Function parameters must use object root type.');
 
-    tools.push({
+    tools.set(key, {
       name,
       ...(namespace === undefined ? {} : { namespace }),
       description: t.description === undefined ? '' : string(t.description),
@@ -169,7 +175,7 @@ function parseTools(raw: unknown, limits: Settings): ResponsesTool[] {
   return tools;
 }
 
-function parseToolChoice(raw: unknown, tools: ResponsesTool[]): ToolChoice {
+function parseToolChoice(raw: unknown, tools: ToolIndex): ToolChoice {
   let toolChoice: ToolChoice = 'auto';
   if (raw === undefined || raw === null) return toolChoice;
 
@@ -177,7 +183,7 @@ function parseToolChoice(raw: unknown, tools: ResponsesTool[]): ToolChoice {
     if (raw !== 'auto' && raw !== 'none' && raw !== 'required') {
       bad('Unsupported tool_choice.');
     }
-    if (!tools.length && raw === 'required') bad('required needs tools.');
+    if (!tools.size && raw === 'required') bad('required needs tools.');
     return raw;
   }
 
@@ -199,7 +205,7 @@ function parseToolChoice(raw: unknown, tools: ResponsesTool[]): ToolChoice {
 
 function parseHistory(
   rawInput: unknown,
-  tools: ResponsesTool[],
+  tools: ToolIndex,
   limits: Settings,
   options: ParseRequestOptions,
 ): HistoryMessage[] {
@@ -276,7 +282,7 @@ function parseHistory(
       const args = tool.custom
         ? JSON.stringify({ input: string(item.input) })
         : string(item.arguments);
-      if (encoder.encode(args).length > limits.tool) {
+      if (utf8Length(args) > limits.tool) {
         bad('Historical arguments exceed limit.');
       }
       const normalized = normalizeArguments(args, tool);
@@ -477,9 +483,11 @@ export function parseRequest(
   return {
     model,
     history,
-    tools,
+    tools: [...tools.values()],
     stream: r.stream === true,
     toolChoice,
+    // Responses API default is true.
+    parallelToolCalls: r.parallel_tool_calls !== false,
     tokens,
     effort,
     ...(outputSchema === undefined ? {} : { outputSchema }),

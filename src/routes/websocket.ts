@@ -1,6 +1,5 @@
 import {
   bad,
-  encoder,
   errorBody,
   failure,
   GatewayError,
@@ -10,6 +9,7 @@ import {
   object,
   type Obj,
   type Settings,
+  utf8Length,
 } from '../utils/runtime';
 import { responses } from '../core/response';
 import { prepareResponse, type ResponsesEnv } from './responses';
@@ -39,11 +39,11 @@ export function upgradeResponses(
   let active: { id: string; life: Lifetime } | undefined;
   let previous: Previous | undefined;
   let closed = false;
+  // Consecutive request errors; reset whenever a response reaches a terminal event.
   let errors = 0;
   // Workers WebSocket has no drain/bufferedAmount API. Bound total enqueued
   // wire bytes per connection as well as per response; clients may reconnect.
   let connectionBytes = 0;
-  const connectionLimit = 64 * 1024 * 1024;
 
   const cleanup = (reason = 'Connection closed.') => {
     if (closed) return false;
@@ -72,13 +72,13 @@ export function upgradeResponses(
     }
   };
 
-  const send = (data: string, size = encoder.encode(data).length) => {
+  const send = (data: string, size = utf8Length(data)) => {
     if (closed || server.readyState !== WebSocket.OPEN) {
       shutdown();
       throw new GatewayError(499, 'cancelled', 'Connection closed.');
     }
     connectionBytes += size;
-    if (connectionBytes > connectionLimit) {
+    if (connectionBytes > limits.wsBytes) {
       shutdown(1000, 'Connection wire limit reached. Reconnect.');
       throw new GatewayError(499, 'cancelled', 'Connection wire limit reached.');
     }
@@ -98,7 +98,7 @@ export function upgradeResponses(
     } catch {
       shutdown(1011, 'WebSocket send failed.');
     }
-    if (++errors >= 16) shutdown(1008, 'Too many request errors.');
+    if (++errors >= 16) shutdown(1008, 'Too many consecutive request errors.');
   };
 
   const timer = setTimeout(() => {
@@ -106,11 +106,11 @@ export function upgradeResponses(
       new GatewayError(
         400,
         'websocket_connection_limit_reached',
-        'Reconnect after 60 minutes.',
+        'Connection time limit reached. Reconnect.',
       ),
     );
     shutdown(1000, 'Connection time limit reached.');
-  }, 60 * 60 * 1000);
+  }, limits.wsLifetime);
 
   async function run(body: Obj, generate: boolean, turn: { id: string; life: Lifetime }) {
     let events: ReturnType<typeof responses> | undefined;
@@ -141,7 +141,7 @@ export function upgradeResponses(
         }
 
         const data = JSON.stringify(event);
-        const size = encoder.encode(data).length;
+        const size = utf8Length(data);
         wireBytes += size;
         if (wireBytes > limits.output * 8) {
           throw new GatewayError(
@@ -164,16 +164,16 @@ export function upgradeResponses(
               : body.input ?? [];
           if (Array.isArray(input) && Array.isArray(result.output)) {
             const history = [...input, ...result.output];
-            if (
-              history.length <= 4096 &&
-              encoder.encode(JSON.stringify(history)).length <= limits.body
-            ) {
+            // Byte size is enforced once, on the expanded body of the turn that
+            // continues from this response, instead of serializing it here too.
+            if (history.length <= 4096) {
               previous = { id: turn.id, input: history };
             }
           }
         }
 
         if (terminal) {
+          errors = 0;
           // Finish generator cleanup before making completion visible to a
           // client that can immediately send its next response.create.
           await events.return(undefined);
@@ -217,7 +217,7 @@ export function upgradeResponses(
       }
       if (
         message.data.length > limits.body ||
-        encoder.encode(message.data).length > limits.body
+        utf8Length(message.data) > limits.body
       ) {
         sendError(new GatewayError(413, 'body_too_large', 'Request exceeds body limit.'));
         shutdown(1009, 'Message too large.');
@@ -284,7 +284,7 @@ export function upgradeResponses(
         body.input = [...previous.input, ...input];
       }
 
-      if (encoder.encode(JSON.stringify(body)).length > limits.body) {
+      if (utf8Length(JSON.stringify(body)) > limits.body) {
         throw new GatewayError(413, 'body_too_large', 'Expanded request exceeds body limit.');
       }
 

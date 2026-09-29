@@ -72,7 +72,7 @@ export async function handleResponses(
   try {
     const prepared = await prepareResponse(
       env,
-      await readBody(request, limits.body, life),
+      await readBody(request, limits, life),
       limits,
       life,
       true,

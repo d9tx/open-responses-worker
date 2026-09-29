@@ -1,11 +1,11 @@
 import {
-  encoder,
   failure,
   GatewayError,
   id,
   type Lifetime,
   type Obj,
   type Settings,
+  utf8Length,
 } from '../utils/runtime';
 import type {
   NormalizedChunk,
@@ -29,9 +29,11 @@ function usageValue(raw: NormalizedUsage | undefined): Obj | null {
   if (!raw) return null;
   return {
     input_tokens: raw.inputTokens,
-    input_tokens_details: {
-      cached_tokens: raw.cachedInputTokens,
-    },
+    // Unknown cached-token counts stay null rather than being reported as 0.
+    input_tokens_details:
+      raw.cachedInputTokens === undefined
+        ? null
+        : { cached_tokens: raw.cachedInputTokens },
     output_tokens: raw.outputTokens,
     total_tokens: raw.inputTokens + raw.outputTokens,
   };
@@ -69,7 +71,7 @@ export async function* responses(
     incomplete_details:
       status === 'incomplete' ? { reason: 'max_output_tokens' } : null,
     usage: usageValue(rawUsage),
-    parallel_tool_calls: true,
+    parallel_tool_calls: request.parallelToolCalls,
     store: false,
   });
 
@@ -147,7 +149,7 @@ export async function* responses(
             const text = kind === 'text' ? delta.text : delta.reasoning;
             if (!text) continue;
 
-            bytes += encoder.encode(text).length;
+            bytes += utf8Length(text);
             if (bytes > limits.output) {
               throw new GatewayError(502, 'output_limit', 'Output buffer limit exceeded.');
             }
@@ -233,6 +235,15 @@ export async function* responses(
             );
           }
 
+          if (!request.parallelToolCalls && calls.size > 1) {
+            throw new GatewayError(
+              502,
+              'tool_choice_violation',
+              'Multiple tool calls were generated with parallel_tool_calls=false.',
+              true,
+            );
+          }
+
           if (
             calls.size === 0 &&
             (request.toolChoice === 'required' || typeof request.toolChoice === 'object')
@@ -283,14 +294,6 @@ export async function* responses(
 
         terminal = finish === 'length' ? 'incomplete' : 'completed';
         for (const evt of closeItem(terminal)) yield evt;
-
-        console.log(
-          JSON.stringify({
-            request_id: requestId,
-            phase: 'terminal_emitting',
-            terminal,
-          }),
-        );
         yield event(`response.${terminal}`, { response: envelope(terminal) });
         return;
       } catch (error) {
@@ -300,7 +303,7 @@ export async function* responses(
         if (
           !committed &&
           e.retryable &&
-          attempts < 3 &&
+          attempts < limits.attempts &&
           !life.signal.aborted
         ) {
           try {
@@ -343,7 +346,7 @@ export async function* responses(
         usage: usageValue(rawUsage),
         cached_input_tokens: rawUsage?.cachedInputTokens ?? null,
         cache_hit_pct:
-          rawUsage === undefined || rawUsage.inputTokens <= 0
+          rawUsage?.cachedInputTokens === undefined || rawUsage.inputTokens <= 0
             ? null
             : Math.round((rawUsage.cachedInputTokens / rawUsage.inputTokens) * 10_000) / 100,
       }),

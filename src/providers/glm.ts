@@ -21,6 +21,7 @@ const GLM_MODEL: ModelDescriptor = {
   id: 'glm-5.3',
   aliases: ['glm-5.3', '@cf/zai-org/glm-5.3', 'codex-auto-review'],
   context: 1_048_576,
+  autoCompactTokens: 180_000,
   displayName: 'GLM-5.3',
   description:
     'Cloudflare Workers AI GLM-5.3 through the local Responses gateway.',
@@ -68,12 +69,9 @@ function normalizeUsage(raw: unknown): NormalizedUsage | undefined {
   return {
     inputTokens: input,
     outputTokens: output,
-    cachedInputTokens:
-      typeof cached === 'number' &&
-      Number.isSafeInteger(cached) &&
-      cached >= 0
-        ? cached
-        : 0,
+    ...(typeof cached === 'number' && Number.isSafeInteger(cached) && cached >= 0
+      ? { cachedInputTokens: cached }
+      : {}),
   };
 }
 
@@ -144,24 +142,36 @@ function toolIdentity(name: string, namespace?: string): string {
 function assignWireNames(tools: readonly ResponsesTool[]): Map<string, ResponsesTool> {
   const toolMap = new Map<string, ResponsesTool>();
   const used = new Set<string>();
+  const counts = new Map<string, number>();
 
   for (const tool of tools) {
     const full = toolWireName(tool);
     used.add(full);
+    counts.set(full, (counts.get(full) ?? 0) + 1);
   }
 
-  // GLM rejects function names longer than 64 bytes. Long namespace-expanded
-  // names get deterministic, request-local aliases; the map is reversible.
+  // Non-namespaced names are validated to 1–64 characters and are unique, so
+  // they always keep their own name. A namespaced tool keeps `namespace__name`
+  // only when that fits GLM's 64-byte limit and no other tool expands to the
+  // same wire name; otherwise it gets a deterministic, request-local alias.
+  const keepsName = (tool: ResponsesTool): boolean => {
+    const full = toolWireName(tool);
+    return (
+      tool.namespace === undefined ||
+      (full.length <= 64 && counts.get(full) === 1)
+    );
+  };
+
   let aliasIndex = 0;
-  const longTools = tools
-    .filter(tool => toolWireName(tool).length > 64)
+  const aliased = tools
+    .filter(tool => !keepsName(tool))
     .sort((a, b) => {
       const left = toolWireName(a);
       const right = toolWireName(b);
       return left < right ? -1 : left > right ? 1 : 0;
     });
 
-  for (const tool of longTools) {
+  for (const tool of aliased) {
     let alias: string;
     do {
       alias = `gateway_tool_${aliasIndex++}`;
@@ -171,8 +181,7 @@ function assignWireNames(tools: readonly ResponsesTool[]): Map<string, Responses
   }
 
   for (const tool of tools) {
-    const full = toolWireName(tool);
-    if (full.length <= 64) toolMap.set(full, tool);
+    if (keepsName(tool)) toolMap.set(toolWireName(tool), tool);
   }
 
   return toolMap;
@@ -365,6 +374,8 @@ export const glmProvider: ProviderAdapter = {
             stream_options: { include_usage: true },
           }),
       max_completion_tokens: request.tokens,
+      // Kept off upstream regardless of the client value. GLM continuation
+      // chunks may omit the tool-call index; see normalizeToolCall.
       parallel_tool_calls: false,
       reasoning_effort: request.effort ?? 'max',
       ...(request.tools.length === 0

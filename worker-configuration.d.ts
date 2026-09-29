@@ -13,6 +13,10 @@ interface __BaseEnv_Env {
 	MAX_OUTPUT_TOKENS: string;
 	REQUEST_TIMEOUT_MS: string;
 	IDLE_TIMEOUT_MS: string;
+	BODY_IDLE_TIMEOUT_MS: string;
+	MAX_ATTEMPTS: string;
+	WS_MAX_CONNECTION_BYTES: string;
+	WS_MAX_CONNECTION_MS: string;
 	GATEWAY_TOKEN: string;
 }
 declare namespace Cloudflare {
@@ -26,7 +30,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "INFERENCE_ENABLED" | "MAX_BODY_BYTES" | "MAX_OUTPUT_BYTES" | "MAX_TOOL_BYTES" | "MAX_SCHEMA_BYTES" | "MAX_TOOLS" | "MAX_OUTPUT_TOKENS" | "REQUEST_TIMEOUT_MS" | "IDLE_TIMEOUT_MS" | "GATEWAY_TOKEN">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "INFERENCE_ENABLED" | "MAX_BODY_BYTES" | "MAX_OUTPUT_BYTES" | "MAX_TOOL_BYTES" | "MAX_SCHEMA_BYTES" | "MAX_TOOLS" | "MAX_OUTPUT_TOKENS" | "REQUEST_TIMEOUT_MS" | "IDLE_TIMEOUT_MS" | "BODY_IDLE_TIMEOUT_MS" | "MAX_ATTEMPTS" | "WS_MAX_CONNECTION_BYTES" | "WS_MAX_CONNECTION_MS" | "GATEWAY_TOKEN">> {}
 }
 
 // Begin runtime types

@@ -32,9 +32,32 @@ export function errorBody(error: GatewayError) {
   return { error: { type: error.status < 500 ? 'invalid_request_error' : 'server_error', code: error.code, message: error.message, param: null } };
 }
 export const encoder = new TextEncoder();
+// UTF-8 byte length without allocating an encoded copy. Lone surrogates count
+// as U+FFFD (3 bytes), matching TextEncoder.
+export function utf8Length(value: string): number {
+  let bytes = 0;
+  for (let i = 0; i < value.length; i++) {
+    const c = value.charCodeAt(i);
+    if (c < 0x80) bytes += 1;
+    else if (c < 0x800) bytes += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < value.length) {
+      const next = value.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        bytes += 4;
+        i++;
+      } else {
+        bytes += 3;
+      }
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
+}
 export const id = (prefix: string) => `${prefix}_${crypto.randomUUID().replaceAll('-', '')}`;
 export interface Settings {
   body: number; output: number; tool: number; schema: number; tools: number; tokens: number; timeout: number; idle: number;
+  bodyIdle: number; attempts: number; wsBytes: number; wsLifetime: number;
 }
 export function settings(env: {
   MAX_BODY_BYTES: string;
@@ -45,6 +68,10 @@ export function settings(env: {
   MAX_OUTPUT_TOKENS: string;
   REQUEST_TIMEOUT_MS: string;
   IDLE_TIMEOUT_MS: string;
+  BODY_IDLE_TIMEOUT_MS: string;
+  MAX_ATTEMPTS: string;
+  WS_MAX_CONNECTION_BYTES: string;
+  WS_MAX_CONNECTION_MS: string;
 }): Settings {
   const read = (key: keyof typeof env): number => {
     const n = Number(env[key]);
@@ -69,6 +96,10 @@ export function settings(env: {
     tokens: read('MAX_OUTPUT_TOKENS'),
     timeout: read('REQUEST_TIMEOUT_MS'),
     idle: read('IDLE_TIMEOUT_MS'),
+    bodyIdle: read('BODY_IDLE_TIMEOUT_MS'),
+    attempts: read('MAX_ATTEMPTS'),
+    wsBytes: read('WS_MAX_CONNECTION_BYTES'),
+    wsLifetime: read('WS_MAX_CONNECTION_MS'),
   };
 }
 
@@ -104,17 +135,21 @@ export class Lifetime {
   }
   close(): void { clearTimeout(this.timer); this.parent.removeEventListener('abort', this.onAbort); }
 }
-export async function readBody(request: Request, limit: number, life: Lifetime): Promise<unknown> {
+export async function readBody(
+  request: Request,
+  limits: { body: number; bodyIdle: number },
+  life: Lifetime,
+): Promise<unknown> {
   if (!request.body) bad('Request body is required.');
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
   let length = 0;
   try {
     while (true) {
-      const part = await life.wait(reader.read(), 15000);
+      const part = await life.wait(reader.read(), limits.bodyIdle);
       if (part.done) break;
       length += part.value.byteLength;
-      if (length > limit) throw new GatewayError(413, 'body_too_large', 'Request exceeds body limit.');
+      if (length > limits.body) throw new GatewayError(413, 'body_too_large', 'Request exceeds body limit.');
       chunks.push(part.value);
     }
   } finally { void reader.cancel().catch(() => {}); reader.releaseLock(); }
