@@ -209,6 +209,8 @@ npx cf auth login
 npx cf deploy
 ```
 
+`cloudflare.config.ts` sets `INFERENCE_ENABLED` to `"true"`, so a deployed Worker serves inference and incurs Workers AI usage. Set it to `"false"` before deploying if the Worker should reject inference requests with `inference_disabled`.
+
 Do not deploy or enable remote inference unless you have explicitly authorized the account, model access, and potential cost.
 
 ## Supported JSON Schema subset

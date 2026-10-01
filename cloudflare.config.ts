@@ -9,7 +9,7 @@ export default defineConfig({
 			enabled: false,
 		},
 		env: {
-			INFERENCE_ENABLED: bindings.text<string>("false"),
+			INFERENCE_ENABLED: bindings.text<string>("true"),
 			MAX_BODY_BYTES: bindings.text<string>("16777216"),
 			MAX_OUTPUT_BYTES: bindings.text<string>("2097152"),
 			MAX_TOOL_BYTES: bindings.text<string>("262144"),
