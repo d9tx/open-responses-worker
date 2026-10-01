@@ -124,13 +124,22 @@ npm test
 
 `npm run build` runs `cf deploy --dry-run`, which builds into `.cloudflare/output/` and validates the deployment without uploading it.
 
-`npm test` runs a small protocol-level suite in `test/` with Node's built-in test runner and TypeScript support (Node.js 22.7 or later, no additional dependencies). It covers SSE framing, UTF-8 across packets, request parsing, tool-name mapping, tool-call handling, and usage reporting against a fake `AI` binding. It runs on Node.js, not workerd, and does not call Workers AI. There is no test CI at this stage.
+`npm test` runs a small protocol-level suite in `test/` with Node's built-in test runner and TypeScript support (Node.js 22.7 or later, no additional dependencies). It covers HTTP error responses from the Worker entry point, SSE framing, UTF-8 across packets, request parsing, tool-name mapping, tool-call handling, and usage reporting against a fake `AI` binding. It runs on Node.js, not workerd, and does not call Workers AI. There is no test CI at this stage.
+
+To smoke-test a deployed Worker without running inference:
+
+```sh
+npm run smoke -- https://<worker>.<subdomain>.workers.dev
+```
+
+The script reads `GATEWAY_TOKEN` from `.dev.vars` and passes it to `curl` on standard input, so the token does not appear in command-line arguments or output. It checks `/health`, authentication on `/v1/models`, the Codex model-list format, and error handling. `POST /v1/responses` is checked only when the deployment reports inference as disabled; it is skipped when inference is enabled, because it would incur Workers AI charges.
 
 The available checks are:
 
 - TypeScript strict compilation
 - `cf` bundling and dry-run deployment validation
 - The Node.js protocol test suite
+- The deployment smoke test
 - Manually authorized local or remote requests
 
 ## Endpoints
