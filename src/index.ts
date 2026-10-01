@@ -95,7 +95,7 @@ export default {
       }
 
       if (websocket) return upgradeResponses(env, settings(env), headers);
-      return handleResponses(request, env, settings(env), requestId, headers);
+      return await handleResponses(request, env, settings(env), requestId, headers);
     } catch (error) {
       const e = failure(error);
       return Response.json(errorBody(e), {
