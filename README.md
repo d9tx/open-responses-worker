@@ -279,6 +279,7 @@ The rate limiter is Cloudflare-location-local and eventually consistent. It is n
 
 - **Used successfully in normal development workflows with Codex CLI 0.154.0.** The 2026-09-15 smoke coverage included text, file reading, shell/function, apply_patch, Parallel MCP, Exa MCP, multiple tool calls in one response, WebSocket continuation, reconnection, and automatic approval review against the pre-refactor implementation.
 - **2026-09-16–2026-09-17:** The provider-adapter implementation has been used successfully in normal development workflows with Codex CLI 0.154.0, GLM-5.3, and remote Workers AI inference. TypeScript strict checking and Wrangler dry-run bundling also passed.
+- **2026-10-01:** After migrating to the Cloudflare CLI, the Worker was deployed successfully with `cf deploy` (cf 1.0.0-beta.9, Wrangler 4.145.0). Inference remained disabled, so this does not re-validate model behavior.
 - These workflows do not cover every Responses API edge case. Desktop and long-session behavior remain unverified.
 
 ## Contributing
