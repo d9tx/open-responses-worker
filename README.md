@@ -8,12 +8,12 @@ The current provider adapter targets **GLM-5.3**. The gateway is intentionally f
 
 ## Status
 
-- Runtime stack: TypeScript, Wrangler, Cloudflare Workers
+- Runtime stack: TypeScript, Cloudflare CLI (`cf`, beta, delegating bundling to Wrangler), Cloudflare Workers
 - Runtime dependencies: **0**
 - Provider: `@cf/zai-org/glm-5.3`
 - Public model IDs: `glm-5.3`, `@cf/zai-org/glm-5.3`
 - Supported transports: HTTP JSON, HTTP SSE, WebSocket
-- Latest local checks: TypeScript strict check and Wrangler dry-run build on 2026-09-17
+- Latest local checks: TypeScript strict check, protocol tests, and `cf deploy --dry-run` build (cf 1.0.0-beta.9, Wrangler 4.145.0) on 2026-10-01
 
 ## Features
 
@@ -74,7 +74,7 @@ src/
 
 ## Quick start
 
-Install dependencies and generate the local Workers type definitions:
+Install dependencies and generate the local Workers type definitions into `.cloudflare/types/` (ignored by Git):
 
 ```sh
 npm ci
@@ -102,10 +102,10 @@ openssl rand -hex 32
 
 Do not place tokens in command-line arguments, repository files, URLs, or logs.
 
-Run the development server with remote bindings enabled:
+Run the development server. It listens on `localhost` by default; the `AI` binding always runs remotely, so `cf dev` requires an authenticated Cloudflare session (`npx cf auth login`):
 
 ```sh
-npm run dev -- --ip 127.0.0.1 --port 8787
+npm run dev -- --port 8787
 ```
 
 Workers AI has no local model simulator. When inference is enabled during local development, `env.AI.run()` invokes the remote Workers AI model and incurs normal Workers AI usage.
@@ -120,14 +120,16 @@ npm run build
 npm test
 ```
 
-`npm run build` runs `wrangler deploy --dry-run --outdir dist`; it does not deploy.
+`npm run typecheck` regenerates the Workers types with `cf workers types` before running `tsc`.
+
+`npm run build` runs `cf deploy --dry-run`, which builds into `.cloudflare/output/` and validates the deployment without uploading it.
 
 `npm test` runs a small protocol-level suite in `test/` with Node's built-in test runner and TypeScript support (Node.js 22.7 or later, no additional dependencies). It covers SSE framing, UTF-8 across packets, request parsing, tool-name mapping, tool-call handling, and usage reporting against a fake `AI` binding. It runs on Node.js, not workerd, and does not call Workers AI. There is no test CI at this stage.
 
 The available checks are:
 
 - TypeScript strict compilation
-- Wrangler bundling and dry-run deployment validation
+- `cf` bundling and dry-run deployment validation
 - The Node.js protocol test suite
 - Manually authorized local or remote requests
 
@@ -185,10 +187,17 @@ timeout_ms = 5000
 refresh_interval_ms = 300000
 ```
 
-For production, configure the Worker secret with Wrangler, for example:
+`GATEWAY_TOKEN` is declared as a required secret in `cloudflare.config.ts`; its value is never stored there. For production, configure the Worker secret with Wrangler, which prompts for the value instead of taking it as a command-line argument:
 
 ```sh
 npx wrangler secret put GATEWAY_TOKEN
+```
+
+Deploy with the Cloudflare CLI after authenticating:
+
+```sh
+npx cf auth login
+npx cf deploy
 ```
 
 Do not deploy or enable remote inference unless you have explicitly authorized the account, model access, and potential cost.
@@ -232,7 +241,7 @@ Tool parameters and structured output roots must use object type.
 
 ## Limits and resource protection
 
-Values are configured in `wrangler.jsonc`.
+Values are configured in `cloudflare.config.ts`.
 
 | Setting | Default |
 | --- | --- |

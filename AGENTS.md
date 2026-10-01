@@ -6,7 +6,7 @@ The project implements a focused subset of the OpenAI Responses API for Codex an
 
 ## Project Scope
 
-- Target the Cloudflare Workers runtime directly with TypeScript and Wrangler.
+- Target the Cloudflare Workers runtime directly with TypeScript and the Cloudflare CLI (`cf`). Worker configuration lives in `cloudflare.config.ts`; `cf` delegates bundling to Wrangler.
 - Production inference uses the Cloudflare Workers AI binding through `env.AI.run()`.
 - Keep the implementation focused on the Responses API.
 - Do not add Chat Completions compatibility.
@@ -85,7 +85,7 @@ Provider-specific compatibility belongs under `providers/`.
   - `TextDecoder`
   - Web Crypto
 - Keep third-party runtime dependencies at zero by default.
-- Wrangler, TypeScript, and official development/build tooling may remain development dependencies.
+- `cf`, Wrangler, TypeScript, and official development/build tooling may remain development dependencies.
 - Do not add routing frameworks, model SDKs, generic gateway libraries, schema libraries, or utility collections without a concrete need.
 - Do not enable `nodejs_compat` or introduce Node.js-only APIs without a documented runtime requirement.
 
@@ -207,7 +207,7 @@ npm test
 ```
 
 - `npm run typecheck` must continue to pass with TypeScript strict mode.
-- `npm run build` must continue to pass the Wrangler dry-run build.
+- `npm run build` must continue to pass the `cf deploy --dry-run` build.
 - Static checking and successful bundling do not prove runtime compatibility.
 - Changes affecting provider behavior, streaming, tool calls, or WebSocket behavior should be validated against the actual affected client/provider when practical.
 - Remote inference may incur charges; do not perform paid remote calls without authorization.

@@ -4,19 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "typegen": "wrangler types --strict-vars=false",
-    "typecheck": "tsc --noEmit",
-    "build": "wrangler deploy --dry-run --outdir dist",
+    "dev": "cf dev",
+    "typegen": "cf workers types",
+    "typecheck": "cf workers types && tsc --noEmit",
+    "build": "cf deploy --dry-run",
     "test": "node --experimental-transform-types --no-warnings --import ./test/register.mjs --test \"test/*.test.ts\""
   },
   "devDependencies": {
+    "cf": "1.0.0-beta.9",
     "typescript": "7.0.2",
-    "wrangler": "^4.132.0"
+    "wrangler": "^4.145.0"
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
     "fsevents@2.3.3": true,
-    "workerd@1.20260915.1": true
+    "workerd@1.20260930.2": true
   }
 }
